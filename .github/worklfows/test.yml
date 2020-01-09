@@ -1,0 +1,65 @@
+name: Build & test on any push
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    name: Build IPFS
+    runs-on: ubuntu-18.04
+
+    env:
+      DOCKER_BUILDKIT: 1
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+          - arm32v6
+          - arm32v7
+
+    steps:
+      - uses: actions/checkout@v1.0.0
+
+      - name: Build ipfs in Docker
+        run: >
+          docker build --no-cache .
+          --build-arg "ARCH=${{matrix.arch}}"
+          --tag       "ipfs:${{matrix.arch}}"
+
+      - name: Show built image details
+        run: docker images ipfs
+
+      - name: Save image to a .tgz file
+        run: |
+          mkdir -p image/
+          docker save "ipfs:${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.arch}}.tgz"
+
+      - name: Print sha256sum of produced Docker image
+        run: sha256sum "image/ipfs-${{matrix.arch}}.tgz"
+
+      - name: Add Docker image as build artifact
+        uses: actions/upload-artifact@v1.0.0
+        with:
+          name: docker-images
+          path: image/
+
+      - name: Extract binary from the built image
+        run: |
+          mkdir -p binary/
+          ID=$(docker create "ipfs:${{matrix.arch}}")
+          docker cp  "${ID}:/bin/ipfs"  binary/
+          docker rm  "${ID}"
+          gzip -S "-${{matrix.arch}}.gz" binary/ipfs
+
+      - name: Print sha256sum of extracted binary
+        run: sha256sum binary/*
+
+      - name: Add raw binary as build artifact
+        uses: actions/upload-artifact@v1.0.0
+        with:
+          name: binaries
+          path: binary/
