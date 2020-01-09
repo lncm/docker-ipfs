@@ -43,6 +43,7 @@ jobs:
           if [[ "${ARCH}" == "amd64" ]]; then
             TEST_LEVEL="simple"
           fi
+          echo ::set-env name=TEST_LEVEL::"${TEST_LEVEL}"
 
       # TODO: add labels, see: https://github.com/lncm/docker-lnd/blob/3a26bc667c441e94958b876170f87d538cb5a07a/.github/workflows/on-tag.yml#L102-L107
       - name: Build ipfs in Docker
