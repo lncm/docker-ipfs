@@ -107,8 +107,8 @@ jobs:
 
       - name: Setup environment
         run: |
-          TAG="$(echo "${GITHUB_REF}" | grep 'refs/tags/' | awk -F/ '{print $NF}')"
-          echo ::set-env name=TAG::"${TAG}"
+          VERSION="$(echo "${GITHUB_REF}" | grep 'refs/tags/' | awk -F/ '{print $NF}')"
+          echo ::set-env name=VERSION::"${VERSION}"
 
           echo ::set-env name=SLUG::"$(echo ${GITHUB_REPOSITORY,,} | sed 's/docker-//')"
 
@@ -152,19 +152,19 @@ jobs:
         uses: meeDamian/tag-suggestions@v1.0.2
 
       - name: Create version-exact manifest
-        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${TAG}"
+        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"
 
       - name: Create minor-version manifest
         if: steps.tags.outputs.minor != ''
-        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${TAG}"  "${{steps.tags.outputs.minor}}"
+        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "${{steps.tags.outputs.minor}}"
 
       - name: Create major-version manifest
         if: steps.tags.outputs.major != ''
-        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${TAG}"  "${{steps.tags.outputs.major}}"
+        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "${{steps.tags.outputs.major}}"
 
       - name: Create latest-version manifest
         if: steps.tags.outputs.latest != ''
-        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${TAG}"  "${{steps.tags.outputs.latest}}"
+        run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "${{steps.tags.outputs.latest}}"
 
       - name: List all tagged images
         run: docker images "${SLUG}"
