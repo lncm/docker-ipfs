@@ -11,13 +11,16 @@ ARG TEST_LEVEL=simple
 ARG USER=ipfs
 ARG DIR=/data/
 
+# Define default versions so that they don't have to be repreated throughout the file
+ARG VER_GO=1.13
+ARG VER_ALPINE=3.11
 
 #
 ## This set of Docker stages, serves as a base for all cross-compilation targets.
 #   `go-base` only defines `GOOS`, which is common to all other ARCH-specific stages.
 #   Each supported CPU architecture defines it's own stage, which inherits from `go-base`, and sets up its own ENV VARs.
 #
-FROM golang:1.13-alpine3.11 AS go-base
+FROM golang:${VER_GO}-alpine${VER_ALPINE} AS go-base
 ENV GOOS linux
 
 FROM go-base AS amd64
@@ -148,7 +151,7 @@ RUN mv ./cmd/ipfs/ipfs /bin/
 #
 ## This stage is necessary for cross-compilation (only possible if there's no `RUN`s in the `final` stage)
 #   On a "fresh" Alpine base, it generates `/etc/{group,passwd,shadow}` files, that can later be copied into `final`
-FROM alpine:3.11 AS perms
+FROM alpine:${VER_ALPINE} AS perms
 
 ARG USER
 ARG DIR
@@ -163,7 +166,7 @@ RUN adduser --disabled-password \
 #
 ## This is the final image that gets shipped to Docker Hub
 #
-FROM ${ARCH}/alpine:3.11 AS final
+FROM ${ARCH}/alpine:${VER_ALPINE} AS final
 
 ARG USER
 ARG DIR
