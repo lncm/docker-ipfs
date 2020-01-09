@@ -26,7 +26,7 @@ ENV GOOS linux
 FROM go-base AS amd64
 ENV GOARCH amd64
 
-FROM go-base AS arm64
+FROM go-base AS arm64v8
 ENV GOARCH arm64
 
 FROM go-base AS arm32v6
