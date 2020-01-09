@@ -17,9 +17,9 @@ jobs:
       matrix:
         arch:
           - amd64
-          - arm64
           - arm32v6
           - arm32v7
+          - arm64v8
 
     steps:
       - uses: actions/checkout@v1.0.0
