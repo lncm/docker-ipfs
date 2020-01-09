@@ -1,16 +1,24 @@
+# IPFS version to be built
 ARG VERSION=v0.4.22
+
+# Target CPU archtecture of built IPFS binary
 ARG ARCH=amd64
 
+# The level of testing to be performed before creating the `final` stage.  Can be set to: `simple`, `advanced`
+ARG TEST_LEVEL=simple
+
+# Default user, and their home directory for the `final` stage
 ARG USER=ipfs
 ARG DIR=/data/
 
+
 #
-## Specifies the base Go image, and define GOOS (it's the same regardless of architecture).
-##  All images inheriting from this one, define env vars necessary for cross-compilation.
+## This set of Docker stages, serves as a base for all cross-compilation targets.
+#   `go-base` only defines `GOOS`, which is common to all other ARCH-specific stages.
+#   Each supported CPU architecture defines it's own stage, which inherits from `go-base`, and sets up its own ENV VARs.
 #
 FROM golang:1.13-alpine3.11 AS go-base
 ENV GOOS linux
-
 
 FROM go-base AS amd64
 ENV GOARCH amd64
@@ -18,11 +26,9 @@ ENV GOARCH amd64
 FROM go-base AS arm64
 ENV GOARCH arm64
 
-
 FROM go-base AS arm32v6
 ENV GOARCH arm
 ENV GOARM 6
-
 
 FROM go-base AS arm32v7
 ENV GOARCH arm
@@ -30,9 +36,15 @@ ENV GOARM 7
 
 
 #
-## This stage clones, and
+## This stage prepares the environment for IPFS build:
+#   * installs all deps & deps of tests
+#   * creates & switches to a non-root user
+#   * fetches GPG key to verify cloned source
+#   * clones & actually verifies the source
+#   * prints the details of the environment
+#   * applies necessary fixes to go.mod, and prints the difference
 #
-FROM ${ARCH} AS build
+FROM ${ARCH} AS prepare
 
 ARG VERSION
 ARG USER
@@ -46,6 +58,8 @@ RUN adduser --disabled-password \
             --gecos "" \
             ${USER}
 
+# Switch to ${USER}, and homedir `/ipfs/`
+# Note that's an ephemeral build stage so using `${DIR}` makes no sense
 USER ${USER}
 WORKDIR /ipfs/
 
@@ -85,7 +99,23 @@ RUN go mod edit \
 
 RUN git diff go.mod
 
-# NOTE: we're building `nofuse`, so testing fuse is pointless.
+
+#
+## This stage picks up where `prepare` left off, and only runs simple Go tests
+#
+FROM prepare AS simple
+
+# NOTE: we're building `nofuse`, so testing fuse is pointless
+ENV TEST_NO_FUSE 1
+
+RUN test_go_short
+
+
+#
+## This stage picks up where `prepare` left off, and performs all kinds of tests
+#
+FROM prepare AS advanced
+
 ENV TEST_NO_FUSE 1
 ENV TEST_NO_DOCKER 1
 ENV TEST_VERBOSE 1
@@ -101,6 +131,12 @@ RUN make test_sharness_deps
 RUN make test_go_expensive
 RUN make test_sharness_short
 
+
+#
+## This stage picks up whichever test level was selected, and produces the final binary at `/bin/ipfs`
+#
+FROM ${TEST_LEVEL} AS build
+
 # Same as `make build`, except no fuse
 RUN make nofuse
 
@@ -110,9 +146,8 @@ RUN mv ./cmd/ipfs/ipfs /bin/
 
 
 #
-## This stage is used to generate `/etc/{group,passwd,shadow}` files to avoid `RUN`-ing commands in the `final` layer,
-##   which breaks building of cross-compiled images.
-#
+## This stage is necessary for cross-compilation (only possible if there's no `RUN`s in the `final` stage)
+#   On a "fresh" Alpine base, it generates `/etc/{group,passwd,shadow}` files, that can later be copied into `final`
 FROM alpine:3.11 AS perms
 
 ARG USER
