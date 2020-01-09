@@ -4,7 +4,7 @@ ARG VERSION=v0.4.22
 # Target CPU archtecture of built IPFS binary
 ARG ARCH=amd64
 
-# The level of testing to be performed before creating the `final` stage.  Can be set to: `simple`, `advanced`
+# The level of testing to be performed before creating the `final` stage.  Can be set to: `none`, `simple`, `advanced`
 ARG TEST_LEVEL=simple
 
 # Default user, and their home directory for the `final` stage
@@ -102,6 +102,11 @@ RUN go mod edit \
 
 RUN git diff go.mod
 
+
+#
+## This stage performs no tests whatsoever and is only an alias for `prepare`
+#
+FROM prepare AS none
 
 #
 ## This stage picks up where `prepare` left off, and only runs simple Go tests

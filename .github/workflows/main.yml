@@ -38,12 +38,19 @@ jobs:
           fi
           echo ::set-env name=ARCH::"${ARCH}"
 
+          # Only run tests on `amd64` as all others exit with exec error
+          TEST_LEVEL="none"
+          if [[ "${ARCH}" == "amd64" ]]; then
+            TEST_LEVEL="simple"
+          fi
+
       # TODO: add labels, see: https://github.com/lncm/docker-lnd/blob/3a26bc667c441e94958b876170f87d538cb5a07a/.github/workflows/on-tag.yml#L102-L107
       - name: Build ipfs in Docker
         run: >
           docker build --no-cache .
           --build-arg "VERSION=${VERSION}"
           --build-arg "ARCH=${ARCH}"
+          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
           --tag       "ipfs:${{matrix.arch}}"
 
       - name: Show built image details
