@@ -111,7 +111,7 @@ FROM prepare AS simple
 # NOTE: we're building `nofuse`, so testing fuse is pointless
 ENV TEST_NO_FUSE 1
 
-RUN test_go_short
+RUN make test_go_short
 
 
 #
