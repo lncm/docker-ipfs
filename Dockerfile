@@ -152,6 +152,9 @@ RUN make nofuse
 USER root
 RUN mv ./cmd/ipfs/ipfs /bin/
 
+RUN apk add --no-cache  upx
+RUN upx -v /bin/ipfs
+
 
 #
 ## This stage is necessary for cross-compilation (only possible if there's no `RUN`s in the `final` stage)
