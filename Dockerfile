@@ -66,7 +66,7 @@ RUN adduser --disabled-password \
 USER ${USER}
 WORKDIR /ipfs/
 
-RUN git clone  -b ${VERSION}  https://github.com/ipfs/go-ipfs.git
+RUN git clone  -b ${VERSION}  --depth=1  https://github.com/ipfs/go-ipfs.git
 
 WORKDIR /ipfs/go-ipfs/
 
