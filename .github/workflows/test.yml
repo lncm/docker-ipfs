@@ -46,6 +46,7 @@ jobs:
         run: >
           docker build --no-cache .
           --build-arg "ARCH=${ARCH}"
+          --build-arg "TEST_LEVEL=none"
           --tag       "ipfs:${{matrix.arch}}"
 
       - name: Show built image details
