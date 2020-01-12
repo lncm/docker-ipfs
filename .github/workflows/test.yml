@@ -17,25 +17,32 @@ jobs:
       matrix:
         arch:
           - amd64
-# TODO: tests on anything non-native currently borked
-#          - arm64
-#          - arm32v6
-#          - arm32v7
+          - arm64
+          - arm32v6
+          - arm32v7
 
     steps:
       - uses: actions/checkout@v1.0.0
 
       - name: Setup environment
         run: |
-          # For `arm64v8` docker images use different notation than in lncm images (`arm64` vs `arm64v8`)
+          # For `arm64v8`, Docker images use different notation than in LNCM images (`arm64v8` vs `arm64`)
           #   This condition fixes it, by passing the correct version into the Dockerfile
           ARCH="${{matrix.arch}}"
-          if [[ "${ARCH}" == "arm64" ]]; then
+          if [[ "${{matrix.arch}}" == "arm64" ]]; then
             ARCH="arm64v8"
           fi
           echo ::set-env name=ARCH::"${ARCH}"
 
-      - name: Build ipfs in Docker
+      - name: Build & test IPFS in Docker
+        if: matrix.arch == "amd64"
+        run: >
+          docker build --no-cache .
+          --build-arg "TEST_LEVEL=advanced"
+          --tag       "ipfs:${{matrix.arch}}"
+
+      - name: Build IPFS in Docker
+        if: matrix.arch != "amd64
         run: >
           docker build --no-cache .
           --build-arg "ARCH=${ARCH}"

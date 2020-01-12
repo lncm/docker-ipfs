@@ -53,7 +53,7 @@ ARG VERSION
 ARG USER
 
 # Most dependencies are needed for tests
-RUN apk add --no-cache  build-base  bash  coreutils  curl  gnupg  grep  git  perl  psmisc  socat
+RUN apk add --no-cache  gcc  git  gnupg  libc-dev  make  upx
 
 # NOTE: `adduser`, because tests fail when run as root
 RUN adduser --disabled-password \
@@ -113,7 +113,7 @@ FROM prepare AS none
 #
 FROM prepare AS simple
 
-# NOTE: we're building `nofuse`, so testing fuse is pointless
+## NOTE: we're building `nofuse`, so testing fuse is pointless
 ENV TEST_NO_FUSE 1
 
 RUN make test_go_short
@@ -124,6 +124,13 @@ RUN make test_go_short
 #
 FROM prepare AS advanced
 
+ARG USER
+
+USER root
+RUN apk add --no-cache  build-base  bash  coreutils  curl  grep  perl  psmisc  socat
+
+USER ${USER}
+
 ENV TEST_NO_FUSE 1
 ENV TEST_NO_DOCKER 1
 ENV TEST_VERBOSE 1
@@ -131,13 +138,13 @@ ENV TEST_VERBOSE 1
 # TODO: (?) only run tests when ${ARCH} == "amd64"
 # TODO: Both of these crash when called directly, that's why it's split into individual calls below :/
 #RUN make test
-#RUN make test_short
+RUN make test_short
 
 # TODO: The following 4 lines are only needed, because direct `make test[_short]` fails…
-RUN make deps
-RUN make test_sharness_deps
-RUN make test_go_expensive
-RUN make test_sharness_short
+#RUN make deps
+#RUN make test_sharness_deps
+#RUN make test_go_expensive
+#RUN make test_sharness_short
 
 
 #
@@ -146,13 +153,12 @@ RUN make test_sharness_short
 FROM ${TEST_LEVEL} AS build
 
 # Same as `make build`, except no fuse
-RUN make nofuse
+RUN make build
 
 # Finally, copy the built binary to `/bin/ipfs`
 USER root
 RUN mv ./cmd/ipfs/ipfs /bin/
 
-RUN apk add --no-cache  upx
 RUN upx -v /bin/ipfs
 
 
@@ -162,11 +168,9 @@ RUN upx -v /bin/ipfs
 FROM alpine:${VER_ALPINE} AS perms
 
 ARG USER
-ARG DIR
 
 # NOTE: Default GID == UID == 1000
 RUN adduser --disabled-password \
-            --home ${DIR} \
             --gecos "" \
             ${USER}
 
@@ -189,7 +193,7 @@ COPY  --from=perms  /etc/shadow  /etc/
 # Copy the built binary
 COPY  --from=build  /bin/ipfs  /bin/
 
-VOLUME ${DIR}
+VOLUME ${DIR}/.ipfs/
 
 # Public ports (swarm TCP, web gateway, and swarm websockets respectively)
 EXPOSE 4001 8080 8081
@@ -200,6 +204,9 @@ EXPOSE 5001
 USER ${USER}
 WORKDIR ${DIR}
 
+ENV IPFS_LOGGING=info
+ENV IPFS_PATH=/data/.ipfs/
+
 ENTRYPOINT ["ipfs"]
 
-# TODO: Any CMD(?)
+CMD ["daemon", "--init", "--migrate"]
