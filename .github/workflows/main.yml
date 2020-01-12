@@ -41,7 +41,7 @@ jobs:
           # Only run tests on `amd64` as all others exit with exec error
           TEST_LEVEL="none"
           if [[ "${ARCH}" == "amd64" ]]; then
-            TEST_LEVEL="simple"
+            TEST_LEVEL="advanced"
           fi
           echo ::set-env name=TEST_LEVEL::"${TEST_LEVEL}"
 

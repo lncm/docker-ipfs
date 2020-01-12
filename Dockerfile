@@ -135,16 +135,7 @@ ENV TEST_NO_FUSE 1
 ENV TEST_NO_DOCKER 1
 ENV TEST_VERBOSE 1
 
-# TODO: (?) only run tests when ${ARCH} == "amd64"
-# TODO: Both of these crash when called directly, that's why it's split into individual calls below :/
-#RUN make test
 RUN make test_short
-
-# TODO: The following 4 lines are only needed, because direct `make test[_short]` fails…
-#RUN make deps
-#RUN make test_sharness_deps
-#RUN make test_go_expensive
-#RUN make test_sharness_short
 
 
 #
