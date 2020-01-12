@@ -35,14 +35,14 @@ jobs:
           echo ::set-env name=ARCH::"${ARCH}"
 
       - name: Build & test IPFS in Docker
-        if: matrix.arch == "amd64"
+        if: matrix.arch == 'amd64'
         run: >
           docker build --no-cache .
           --build-arg "TEST_LEVEL=advanced"
           --tag       "ipfs:${{matrix.arch}}"
 
       - name: Build IPFS in Docker
-        if: matrix.arch != "amd64
+        if: matrix.arch != 'amd64'
         run: >
           docker build --no-cache .
           --build-arg "ARCH=${ARCH}"
