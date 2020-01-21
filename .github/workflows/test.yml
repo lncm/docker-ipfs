@@ -51,7 +51,7 @@ jobs:
 
       - name: Build IPFS (${{matrix.flavor}})
         run: >
-          docker build .
+          docker build --no-cache .
           --build-arg "ARCH=${ARCH}"
           --build-arg "GOARCH=${GOARCH}"
           --build-arg "GOARM=${GOARM}"

@@ -22,37 +22,75 @@ jobs:
           - arm32v6
           - arm32v7
 
+        flavor:
+          - fuse
+          - nofuse
+
     steps:
       - uses: actions/checkout@v1.0.0
 
-      - name: Setup environment
+      ## Set full name of a git-${TAG}
+      #   fmt:  vX.Y.Z[+build<N>]
+      #   NOTE: Fails if TAG is not found
+      - name: Set TAG (env var)
         run: |
-          VERSION="$(echo "${GITHUB_REF}" | grep 'refs/tags/' | awk -F/ '{print $NF}')"
-          echo ::set-env name=VERSION::"${VERSION}"
+          TAG="$(echo "${GITHUB_REF}" | grep 'refs/tags/' | awk -F/ '{print $NF}')"
+          if [[ -z "${TAG}" ]]; then
+            echo "This action has to be run on a git-tag push"
+            exit 1
+          fi
+          echo ::set-env name=TAG::"${TAG}"
 
-          # For `arm64v8` docker images use different notation than in lncm images (`arm64` vs `arm64v8`)
-          #   This condition fixes it, by passing the correct version into the Dockerfile
-          ARCH="${{matrix.arch}}"
-          if [[ "${ARCH}" == "arm64" ]]; then
+      ## Set target ${ARCH}-itecture for Docker Image built in this job.  Used in `final` stage as: `FROM ${ARCH}/alpine:…`
+      #   fmt:  amd64|arm32v6|arm32v8|arm64v8
+      #   NOTE: Replace `arm64` with `arm64v8`
+      - name: Set ARCH (env var)
+        run: |
+          ARCH=${{matrix.arch}}
+          if [[ "${{matrix.arch}}" == "arm64" ]]; then
             ARCH="arm64v8"
           fi
           echo ::set-env name=ARCH::"${ARCH}"
 
-          # Only run tests on `amd64` as all others exit with exec error
+
+      # Only run tests on `amd64` as all others exit with exec error
+      - name: Set TEST_LEVEL (env var)
+        run: |
           TEST_LEVEL="none"
           if [[ "${ARCH}" == "amd64" ]]; then
             TEST_LEVEL="advanced"
           fi
           echo ::set-env name=TEST_LEVEL::"${TEST_LEVEL}"
 
+      - name: Set GOARCH & GOARM (env vars)
+        if: matrix.arch != 'amd64'
+        run: |
+          GOARCH="$(echo "${{matrix.arch}}" | grep -oE 'arm(64)?')"
+          echo ::set-env name=GOARCH::"${GOARCH}"
+
+          GOARM="$(echo "${{matrix.arch}}" | grep arm32 | tail -c 2)"
+          echo ::set-env name=GOARM::"${GOARM}"
+
       # TODO: add labels, see: https://github.com/lncm/docker-lnd/blob/3a26bc667c441e94958b876170f87d538cb5a07a/.github/workflows/on-tag.yml#L102-L107
-      - name: Build ipfs in Docker
+#      - name: Build ipfs in Docker
+#        run: >
+#          docker build --no-cache .
+#          --build-arg "VERSION=${VERSION}"
+#          --build-arg "ARCH=${ARCH}"
+#          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
+#          --tag       "ipfs:${{matrix.arch}}"
+
+      - name: Build IPFS (${{matrix.flavor}})
         run: >
           docker build --no-cache .
           --build-arg "VERSION=${VERSION}"
           --build-arg "ARCH=${ARCH}"
+          --build-arg "GOARCH=${GOARCH}"
+          --build-arg "GOARM=${GOARM}"
           --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-          --tag       "ipfs:${{matrix.arch}}"
+          --build-arg "FLAVOR=${{matrix.flavor}}"
+          --target    "final-${{matrix.flavor}}"
+          --tag       "ipfs:${{matrix.flavor}}-${{matrix.arch}}"
 
       - name: Show built image details
         run: docker images ipfs
@@ -60,10 +98,10 @@ jobs:
       - name: Save image to a .tgz file
         run: |
           mkdir -p image/
-          docker save "ipfs:${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.arch}}.tgz"
+          docker save "ipfs:${{matrix.flavor}}-${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
 
       - name: Print sha256sum of produced Docker image
-        run: sha256sum "image/ipfs-${{matrix.arch}}.tgz"
+        run: sha256sum "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
 
       - name: Add Docker image as build artifact
         uses: actions/upload-artifact@v1.0.0
@@ -74,7 +112,7 @@ jobs:
       - name: Extract binary from the built image
         run: |
           mkdir -p binary/
-          ID=$(docker create "ipfs:${{matrix.arch}}")
+          ID=$(docker create "ipfs:${{matrix.flavor}}-${{matrix.arch}}")
           docker cp  "${ID}:/bin/ipfs"  binary/
           docker rm  "${ID}"
           gzip -S "-${{matrix.arch}}.gz" binary/ipfs
