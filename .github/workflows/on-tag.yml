@@ -149,7 +149,7 @@ jobs:
 
       - name: Get convenience Docker tag suggestions
         id: tags
-        uses: meeDamian/tag-suggestions@v1.0.2
+        uses: meeDamian/tag-suggestions@v1.0.3
 
       - name: Create version-exact manifest
         run: ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"
