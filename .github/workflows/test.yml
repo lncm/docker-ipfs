@@ -49,16 +49,7 @@ jobs:
 
           echo ::set-env name=TEST_LEVEL::"none"
 
-      - name: Build [& test] IPFS (no fuse)
-        run: >
-          docker build --no-cache .
-          --build-arg "ARCH=${ARCH}"
-          --build-arg "GOARCH=${GOARCH}"
-          --build-arg "GOARM=${GOARM}"
-          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-          --tag       "ipfs:${{matrix.arch}}"
-
-      - name: Build IPFS (w/fuse)
+      - name: Build IPFS (${{matrix.flavor}})
         run: >
           docker build .
           --build-arg "ARCH=${ARCH}"
