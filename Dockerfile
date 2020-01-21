@@ -1,5 +1,6 @@
-# This Dockerfile builds, tests, and minially packages two variants of IPFS:
-#   1.
+# This Dockerfile builds, tests, and minimally packages two flavors of IPFS:
+#   1. `nofuse`    - only allow for API-level communication
+#   2. `fuse`      - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
 
 # IPFS version to be built
 ARG VERSION=v0.4.22
@@ -15,17 +16,11 @@ ARG VER_ALPINE=3.11
 ARG USER=ipfs
 ARG DIR=/data/
 
-# There are two possible variants: build|nofuse, and they correspond directly to `Makefile` targets:
-#   `nofuse` - only allow for API-level communication
-#   `build` - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
-ARG VARIANT=nofuse
+# There are two allowed flavors: `fuse`, `nofuse`
+ARG FLAVOR=nofuse
 
 # The level of testing to be performed before creating the `final` stage.  Can be set to: `none`, `simple`, `advanced`
 ARG TEST_LEVEL=simple
-
-## It's IPFS's Makefile configuration flag.  It's useful as we might want to sometimes test fuse as well
-#ARG TEST_NO_FUSE=1
-
 
 
 #
@@ -119,7 +114,7 @@ FROM preparer AS test-none
 
 
 #
-## Perform UNIT TESTS only
+## Perform GO UNIT TESTS only
 #
 FROM preparer AS test-simple
 
@@ -152,15 +147,20 @@ RUN TEST_NO_FUSE=1  make test_short
 
 
 #
-## This stage picks up whichever test level was selected, and produces the final binary at `/go/src/cmd/ipfs/ipfs`
+## These stages pick up whichever test level was selected, and produce the final binary at `/go/src/cmd/ipfs/ipfs`
 #
-FROM test-${TEST_LEVEL} AS build
+FROM test-${TEST_LEVEL} AS build-fuse
+RUN make build
 
-ARG VARIANT
+FROM test-${TEST_LEVEL} AS build-nofuse
+RUN make nofuse
 
-# Can be either `make build`, or `make nofuse`
-RUN make ${VARIANT}
 
+
+#
+## TODO
+#
+FROM build-${FLAVOR} AS build
 RUN upx -v ./cmd/ipfs/ipfs
 
 
@@ -171,8 +171,6 @@ RUN upx -v ./cmd/ipfs/ipfs
 #
 # NOTE: `${ARCH:+${ARCH}/}` - if ARCH is set, append `/` to it, leave it empty otherwise
 FROM ${ARCH:+${ARCH}/}alpine:${VER_ALPINE} AS final-common
-
-ARG DIR
 
 LABEL maintainer="Damian Mee (@meeDamian)"
 
@@ -197,7 +195,9 @@ ENTRYPOINT ["ipfs"]
 ## TODO: describe how to run it
 #       Alternative version;  with fuse
 #
-FROM final-common AS final-build
+FROM final-common AS final-fuse
+
+ARG DIR
 
 # TODO: temporary  //  explain
 ONBUILD RUN apk add --no-cache fuse
@@ -209,10 +209,10 @@ VOLUME ${DIR}/.ipfs/
 VOLUME /ipfs/
 VOLUME /ipns/
 
-# Make data directory compatible with `nofuse` variant
+# Make data directory compatible with `nofuse` flavor
 ENV IPFS_PATH=/data/.ipfs/
 
-ENTRYPOINT ["echo", "This variant has to be handled in a rather peculiar way.  For details see: URL"]
+ENTRYPOINT ["echo", "This build flavor has to be handled in a rather peculiar way.  For details see: URL"]
 ONBUILD ENTRYPOINT ["ipfs"]
 
 ONBUILD CMD ["daemon", "--init", "--migrate", "--mount"]
@@ -264,4 +264,6 @@ VOLUME ${DIR}/.ipfs/
 CMD ["daemon", "--init", "--migrate"]
 
 
-FROM final-${VARIANT} AS final
+
+
+FROM final-${FLAVOR} AS final

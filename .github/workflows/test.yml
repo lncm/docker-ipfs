@@ -21,6 +21,10 @@ jobs:
           - arm32v6
           - arm32v7
 
+        flavor:
+          - fuse
+          - nofuse
+
     steps:
       - uses: actions/checkout@v1.0.0
 
@@ -61,9 +65,9 @@ jobs:
           --build-arg "GOARCH=${GOARCH}"
           --build-arg "GOARM=${GOARM}"
           --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-          --build-arg "VARIANT=build"
-          --target    "final-build"
-          --tag       "ipfs:fuse-${{matrix.arch}}"
+          --build-arg "FLAVOR=${{matrix.flavor}}"
+          --target    "final-${{matrix.flavor}}"
+          --tag       "ipfs:${{matrix.flavor}}-${{matrix.arch}}"
 
       - name: Show built image details
         run: docker images ipfs
