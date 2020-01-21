@@ -1,4 +1,5 @@
-# This Dockerfile builds IPFS, tests it, and creates a minimal final stage with it
+# This Dockerfile builds, tests, and minially packages two variants of IPFS:
+#   1.
 
 # IPFS version to be built
 ARG VERSION=v0.4.22
@@ -22,8 +23,8 @@ ARG VARIANT=nofuse
 # The level of testing to be performed before creating the `final` stage.  Can be set to: `none`, `simple`, `advanced`
 ARG TEST_LEVEL=simple
 
-# It's IPFS's Makefile configuration flag.  It's useful as we might want to sometimes test fuse as well
-ARG TEST_NO_FUSE=1
+## It's IPFS's Makefile configuration flag.  It's useful as we might want to sometimes test fuse as well
+#ARG TEST_NO_FUSE=1
 
 
 
@@ -122,9 +123,8 @@ FROM preparer AS test-none
 #
 FROM preparer AS test-simple
 
-ARG TEST_NO_FUSE
-
-RUN make test_go_short
+# NOTE: It's impossible to test `fuse` during Docker Build, and we don't want that ENV VAR to propagate further
+RUN TEST_NO_FUSE=1  make test_go_short
 
 
 
@@ -134,7 +134,6 @@ RUN make test_go_short
 FROM preparer AS test-advanced
 
 ARG USER
-ARG TEST_NO_FUSE
 
 # Switch to root to install all dependencies required by integration test suite
 USER root
@@ -146,8 +145,9 @@ USER ${USER}
 ENV TEST_NO_DOCKER 1
 ENV TEST_VERBOSE 1
 
-# This also runs various integration tests
-RUN make test_short
+# This runs Go tests, and various integration tests
+# NOTE: It's impossible to test `fuse` during Docker Build, and we don't want that ENV VAR to propagate further
+RUN TEST_NO_FUSE=1  make test_short
 
 
 
@@ -199,13 +199,8 @@ ENTRYPOINT ["ipfs"]
 #
 FROM final-common AS final-build
 
-# TODO: figure out what `apk add fuse` does exactly, amd replicate it w/o `RUN`ning any commands
-
-# TODO: temporary
+# TODO: temporary  //  explain
 ONBUILD RUN apk add --no-cache fuse
-ONBUILD RUN echo user_allow_other >> /etc/fuse.conf
-ONBUILD RUN ipfs init
-ONBUILD RUN ipfs config --json Mounts.FuseAllowOther true
 
 # Expose the volume containing the _internals_part of IPFS
 VOLUME ${DIR}/.ipfs/
@@ -213,6 +208,9 @@ VOLUME ${DIR}/.ipfs/
 # Expose the volumes containing the file-system parts of what IPFS makes available
 VOLUME /ipfs/
 VOLUME /ipns/
+
+# Make data directory compatible with `nofuse` variant
+ENV IPFS_PATH=/data/.ipfs/
 
 ENTRYPOINT ["echo", "This variant has to be handled in a rather peculiar way.  For details see: URL"]
 ONBUILD ENTRYPOINT ["ipfs"]
@@ -247,7 +245,7 @@ RUN mkdir -p ${DIR}/.ipfs/
 ## TODO: describe
 #       The default; nofuse
 #
-FROM final-common AS final
+FROM final-common AS final-nofuse
 
 ARG USER
 ARG DIR
@@ -264,3 +262,6 @@ USER ${USER}
 VOLUME ${DIR}/.ipfs/
 
 CMD ["daemon", "--init", "--migrate"]
+
+
+FROM final-${VARIANT} AS final

@@ -26,27 +26,32 @@ jobs:
 
       - name: Setup environment
         run: |
-          # For `arm64v8`, Docker images use different notation than in LNCM images (`arm64v8` vs `arm64`)
-          #   This condition fixes it, by passing the correct version into the Dockerfile
+          if [[ "${{matrix.arch}}" == "amd64" ]]; then
+            echo ::set-env name=TEST_LEVEL::"advanced"
+            exit 0
+          fi
+
+          GOARCH="$(echo "${{matrix.arch}}" | grep -oE 'arm(64)?')"
+          echo ::set-env name=GOARCH::"${GOARCH}"
+
+          GOARM="$(echo "${{matrix.arch}}" | grep arm32 | tail -c 2)"
+          echo ::set-env name=GOARM::"${GOARM}"
+
           ARCH="${{matrix.arch}}"
           if [[ "${{matrix.arch}}" == "arm64" ]]; then
             ARCH="arm64v8"
           fi
           echo ::set-env name=ARCH::"${ARCH}"
 
-      - name: Build & test IPFS in Docker
-        if: matrix.arch == 'amd64'
-        run: >
-          docker build --no-cache .
-          --build-arg "TEST_LEVEL=advanced"
-          --tag       "ipfs:${{matrix.arch}}"
+          echo ::set-env name=TEST_LEVEL::"none"
 
-      - name: Build IPFS in Docker
-        if: matrix.arch != 'amd64'
+      - name: Build [& test] IPFS in Docker
         run: >
           docker build --no-cache .
           --build-arg "ARCH=${ARCH}"
-          --build-arg "TEST_LEVEL=none"
+          --build-arg "GOARCH=${GOARCH}"
+          --build-arg "GOARM=${GOARM}"
+          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
           --tag       "ipfs:${{matrix.arch}}"
 
       - name: Show built image details
@@ -70,7 +75,7 @@ jobs:
         run: |
           mkdir -p binary/
           ID=$(docker create "ipfs:${{matrix.arch}}")
-          docker cp  "${ID}:/bin/ipfs"  binary/
+          docker cp  "${ID}:/usr/local/bin/ipfs"  binary/
           docker rm  "${ID}"
           gzip -S "-${{matrix.arch}}.gz" binary/ipfs
 
