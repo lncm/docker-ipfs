@@ -66,10 +66,10 @@ jobs:
       - name: Save image to a .tgz file
         run: |
           mkdir -p image/
-          docker save "ipfs:${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.arch}}.tgz"
+          docker save "ipfs:${{matrix.flavor}}-${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
 
       - name: Print sha256sum of produced Docker image
-        run: sha256sum "image/ipfs-${{matrix.arch}}.tgz"
+        run: sha256sum "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
 
       - name: Add Docker image as build artifact
         uses: actions/upload-artifact@v1.0.0
@@ -80,10 +80,10 @@ jobs:
       - name: Extract binary from the built image
         run: |
           mkdir -p binary/
-          ID=$(docker create "ipfs:${{matrix.arch}}")
+          ID=$(docker create "ipfs:${{matrix.flavor}}-${{matrix.arch}}")
           docker cp  "${ID}:/usr/local/bin/ipfs"  binary/
           docker rm  "${ID}"
-          gzip -S "-${{matrix.arch}}.gz" binary/ipfs
+          gzip -S "-${{matrix.flavor}}-${{matrix.arch}}.gz" binary/ipfs
 
       - name: Print sha256sum of extracted binary
         run: sha256sum binary/*
