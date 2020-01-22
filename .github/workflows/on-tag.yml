@@ -150,9 +150,12 @@ jobs:
 
   docker-hub-push:
     name: Tag & deploy to Docker Hub.  Only after successful build, and test of a pushed git tag
-
     runs-on: ubuntu-18.04
     needs: build
+
+    env:
+      APP: ipfs
+
     steps:
       - uses: actions/checkout@v1.0.0
 
@@ -184,12 +187,12 @@ jobs:
         run: ls docker-images/ | xargs -I % docker load -i "docker-images/%"
 
       - name: List all tagged images
-        run: docker images ipfs
+        run: docker images "${APP}"
 
       - name: Version-tag all images
         run: |
-          for arch in $(docker images ipfs --format "{{.Tag}}"); do
-            docker tag  "ipfs:${arch}"  "${SLUG}:${VERSION}-linux-${arch}"
+          for arch in $(docker images "${APP}" --format "{{.Tag}}"); do
+            docker tag  "${APP}:${arch}"  "${SLUG}:${VERSION}-${arch}"
           done
 
       - name: List all tagged images
