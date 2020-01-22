@@ -96,6 +96,12 @@ jobs:
           printf " GOARCH: %s\n"            "${GOARCH}"
           printf "  GOARM: %s\n"            "${GOARM}"
 
+      - name: Register self-compiled qemu
+        if: matrix.flavor == 'fuse' && matrix.arch != 'amd64'
+        env:
+          QEMU_VERSION: v4.2.0
+        run: docker run --rm --privileged "meedamian/simple-qemu:${QEMU_VERSION}" -p yes
+
       # TODO: add labels, see: https://github.com/lncm/docker-lnd/blob/3a26bc667c441e94958b876170f87d538cb5a07a/.github/workflows/on-tag.yml#L102-L107
       - name: Build IPFS
         run: >
@@ -104,25 +110,7 @@ jobs:
           --build-arg "ARCH=${ARCH}"
           --build-arg "GOARCH=${GOARCH}"
           --build-arg "GOARM=${GOARM}"
-          --target    "final-${{matrix.flavor}}"
-          --tag       "${APP}:${FLAV_ARCH}"
-
-      - name: Register self-compiled qemu
-        if: matrix.flavor == 'fuse' && matrix.arch != 'amd64'
-        env:
-          QEMU_VERSION: v4.2.0
-        run: docker run --rm --privileged "meedamian/simple-qemu:${QEMU_VERSION}" -p yes
-
-      # For the `fuse` flavor trigger all `ONBUILD`s to make sure fuse is available
-      - name: Expand fuse
-        if: matrix.flavor == 'fuse'
-        run: >
-          docker build .
-          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-          --build-arg "ARCH=${ARCH}"
-          --build-arg "GOARCH=${GOARCH}"
-          --build-arg "GOARM=${GOARM}"
-          --build-arg "FLAVOR=fuse"
+          --build-arg "FLAVOR=${{matrix.flavor}}"
           --tag       "${APP}:${FLAV_ARCH}"
 
       - name: Show built image details

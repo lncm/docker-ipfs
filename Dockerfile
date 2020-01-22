@@ -207,14 +207,11 @@ VOLUME /ipns/
 # Make data directory compatible with `nofuse` flavor
 ENV IPFS_PATH=/data/.ipfs/
 
-# Prevent running of this image when `fuse` is not installed
-# TODO: replace URL
-ENTRYPOINT ["echo", "This build flavor has to be handled in a rather peculiar way.  For details see: URL"]
+# For cross-compiled images this has to be run using `qemu`
+RUN apk add --no-cache fuse
 
-# Install `fuse`, and set proper `ENTRYPOINT`, and `CMD`
-ONBUILD RUN apk add --no-cache fuse
-ONBUILD ENTRYPOINT ["ipfs"]
-ONBUILD CMD ["daemon", "--init", "--migrate", "--mount"]
+ENTRYPOINT ["ipfs"]
+CMD ["daemon", "--init", "--migrate", "--mount"]
 
 
 
