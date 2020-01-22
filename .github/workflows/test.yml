@@ -9,9 +9,6 @@ jobs:
     name: Build IPFS
     runs-on: ubuntu-18.04
 
-    env:
-      DOCKER_BUILDKIT: 1
-
     strategy:
       fail-fast: false
       matrix:
@@ -25,15 +22,22 @@ jobs:
           - fuse
           - nofuse
 
+    env:
+      DOCKER_BUILDKIT: 1
+      APP: ipfs
+      FLAV_ARCH: "${{matrix.flavor}}-${{matrix.arch}}"
+
     steps:
       - uses: actions/checkout@v1.0.0
 
       - name: Setup environment
+        if: matrix.arch != 'amd64'
         run: |
-          if [[ "${{matrix.arch}}" == "amd64" ]]; then
-            echo ::set-env name=TEST_LEVEL::"advanced"
-            exit 0
+          ARCH="${{matrix.arch}}"
+          if [[ "${{matrix.arch}}" == "arm64" ]]; then
+            ARCH="arm64v8"
           fi
+          echo ::set-env name=ARCH::"${ARCH}"
 
           GOARCH="$(echo "${{matrix.arch}}" | grep -oE 'arm(64)?')"
           echo ::set-env name=GOARCH::"${GOARCH}"
@@ -41,24 +45,25 @@ jobs:
           GOARM="$(echo "${{matrix.arch}}" | grep arm32 | tail -c 2)"
           echo ::set-env name=GOARM::"${GOARM}"
 
-          ARCH="${{matrix.arch}}"
-          if [[ "${{matrix.arch}}" == "arm64" ]]; then
-            ARCH="arm64v8"
-          fi
-          echo ::set-env name=ARCH::"${ARCH}"
-
-          echo ::set-env name=TEST_LEVEL::"none"
-
-      - name: Build IPFS (${{matrix.flavor}})
+      - name: Build & test IPFS (same CPU)
+        if: matrix.arch == 'amd64'
         run: >
           docker build --no-cache .
+          --build-arg "TEST_LEVEL=advanced"
+          --build-arg "FLAVOR=${{matrix.flavor}}"
+          --tag       "${APP}:${FLAV_ARCH}"
+
+      # NOTE: `--target="final-*"` used here due to usage of `ONBUILD` tags
+      - name: Build IPFS (cross-compile)
+        if: matrix.arch != 'amd64'
+        run: >
+          docker build --no-cache .
+          --build-arg "TEST_LEVEL=none"
           --build-arg "ARCH=${ARCH}"
           --build-arg "GOARCH=${GOARCH}"
           --build-arg "GOARM=${GOARM}"
-          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-          --build-arg "FLAVOR=${{matrix.flavor}}"
           --target    "final-${{matrix.flavor}}"
-          --tag       "ipfs:${{matrix.flavor}}-${{matrix.arch}}"
+          --tag       "${APP}:${FLAV_ARCH}"
 
       - name: Show built image details
         run: docker images ipfs
@@ -66,10 +71,10 @@ jobs:
       - name: Save image to a .tgz file
         run: |
           mkdir -p image/
-          docker save "ipfs:${{matrix.flavor}}-${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
+          docker save "${APP}:${FLAV_ARCH}" | gzip > "image/${APP}-${FLAV_ARCH}.tgz"
 
       - name: Print sha256sum of produced Docker image
-        run: sha256sum "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
+        run: sha256sum "image/${APP}-${FLAV_ARCH}.tgz"
 
       - name: Add Docker image as build artifact
         uses: actions/upload-artifact@v1.0.0
@@ -80,10 +85,11 @@ jobs:
       - name: Extract binary from the built image
         run: |
           mkdir -p binary/
-          ID=$(docker create "ipfs:${{matrix.flavor}}-${{matrix.arch}}")
+          ID=$(docker create "${APP}:${FLAV_ARCH}")
           docker cp  "${ID}:/usr/local/bin/ipfs"  binary/
           docker rm  "${ID}"
-          gzip -S "-${{matrix.flavor}}-${{matrix.arch}}.gz" binary/ipfs
+
+          gzip -S "-${FLAV_ARCH}.gz" binary/ipfs
 
       - name: Print sha256sum of extracted binary
         run: sha256sum binary/*

@@ -23,6 +23,7 @@ ARG FLAVOR=nofuse
 ARG TEST_LEVEL=simple
 
 
+
 #
 ## Prepare IPFS source for building:
 #   * install dependencies
@@ -147,35 +148,26 @@ RUN TEST_NO_FUSE=1  make test_short
 
 
 #
-## These stages pick up whichever test level was selected, and produce the final binary at `/go/src/cmd/ipfs/ipfs`
+## These stages pick up whichever test level was selected, and produce
+#       the desired flavor if the final, compressed binary at `/go/src/cmd/ipfs/ipfs`
 #
 FROM test-${TEST_LEVEL} AS build-fuse
 RUN make build
+RUN upx -v ./cmd/ipfs/ipfs
 
 FROM test-${TEST_LEVEL} AS build-nofuse
 RUN make nofuse
-
-
-
-#
-## TODO
-#
-FROM build-${FLAVOR} AS build
 RUN upx -v ./cmd/ipfs/ipfs
 
 
 
-
 #
-## TODO: describe
+## Bootstrap the `final` image with parts that are shared by all flavors
 #
 # NOTE: `${ARCH:+${ARCH}/}` - if ARCH is set, append `/` to it, leave it empty otherwise
 FROM ${ARCH:+${ARCH}/}alpine:${VER_ALPINE} AS final-common
 
 LABEL maintainer="Damian Mee (@meeDamian)"
-
-# Copy the built binary
-COPY  --from=build  /go/src/cmd/ipfs/ipfs  /usr/local/bin/
 
 # Public ports (swarm TCP, web gateway, and swarm websockets respectively)
 EXPOSE  4001  8080  8081
@@ -190,17 +182,20 @@ ENTRYPOINT ["ipfs"]
 
 
 
-
 #
-## TODO: describe how to run it
-#       Alternative version;  with fuse
+## Create image flavor that contains `fuse` (file system integration)
 #
+# NOTE: Due to Docker limitations the OS inside this image runs as `root`
+# TODO: Add NOTE: on options necessary to pass to `docker run`
+# NOTE: Installing `fuse` in cross-compiled images is quite tricky, that's why there's an extra step (hopefully easy!),
+#   that you need to do on all non-amd64 images before being able to use them.  For details see:  URL
+# TODO: replace URL
 FROM final-common AS final-fuse
 
 ARG DIR
 
-# TODO: temporary  //  explain
-ONBUILD RUN apk add --no-cache fuse
+# Copy the built binary
+COPY  --from=build-fuse /go/src/cmd/ipfs/ipfs  /usr/local/bin/
 
 # Expose the volume containing the _internals_part of IPFS
 VOLUME ${DIR}/.ipfs/
@@ -212,11 +207,14 @@ VOLUME /ipns/
 # Make data directory compatible with `nofuse` flavor
 ENV IPFS_PATH=/data/.ipfs/
 
+# Prevent running of this image when `fuse` is not installed
+# TODO: replace URL
 ENTRYPOINT ["echo", "This build flavor has to be handled in a rather peculiar way.  For details see: URL"]
+
+# Install `fuse`, and set proper `ENTRYPOINT`, and `CMD`
+ONBUILD RUN apk add --no-cache fuse
 ONBUILD ENTRYPOINT ["ipfs"]
-
 ONBUILD CMD ["daemon", "--init", "--migrate", "--mount"]
-
 
 
 
@@ -242,13 +240,16 @@ RUN mkdir -p ${DIR}/.ipfs/
 
 
 #
-## TODO: describe
-#       The default; nofuse
+## Create image flavor that does not contains `fuse` (API/CLI communication only)
+#       NOTE:  That's the default image, until a frictionless way to add `fuse` is found
 #
 FROM final-common AS final-nofuse
 
 ARG USER
 ARG DIR
+
+# Copy the built binary
+COPY  --from=build-nofuse /go/src/cmd/ipfs/ipfs  /usr/local/bin/
 
 # Copy only the relevant parts from the `perms` image
 COPY  --from=perms /etc/group /etc/passwd /etc/shadow  /etc/
@@ -265,5 +266,7 @@ CMD ["daemon", "--init", "--migrate"]
 
 
 
-
+#
+## This is a "convenience stage" for cases when image is built on the same architecture, as it's intended to run on
+#
 FROM final-${FLAVOR} AS final
