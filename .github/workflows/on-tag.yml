@@ -147,7 +147,7 @@ jobs:
         run: |
           mkdir -p binary/
           ID=$(docker create "${APP}:${FLAV_ARCH}")
-          docker cp  "${ID}:/bin/${APP}"  binary/
+          docker cp  "${ID}:/usr/local/bin/${APP}"  binary/
           docker rm  "${ID}"
           gzip -S "-${FLAV_ARCH}.gz"  "binary/${APP}"
 
