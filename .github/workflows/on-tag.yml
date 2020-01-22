@@ -2,16 +2,12 @@ name: Build & deploy lncm/ipfs on a git tag push
 
 on:
   push:
-    tags:
-      - '*'
+    tags: [ '*' ]
 
 jobs:
   build:
     name: Build IPFS
     runs-on: ubuntu-18.04
-
-    env:
-      DOCKER_BUILDKIT: 1
 
     strategy:
       fail-fast: false
@@ -25,6 +21,11 @@ jobs:
         flavor:
           - fuse
           - nofuse
+
+    env:
+      DOCKER_BUILDKIT: 1
+      APP: ipfs
+      FLAV_ARCH: "${{matrix.flavor}}-${{matrix.arch}}"
 
     steps:
       - uses: actions/checkout@v1.0.0
@@ -52,13 +53,26 @@ jobs:
           fi
           echo ::set-env name=ARCH::"${ARCH}"
 
+      ## Set ${BUILD} number out of the pushed git-tag
+      #   fmt:  build<N>
+      #   NOTE: Fails if BUILD tag was not set
+      - name: Set BUILD (env var)
+        run: |
+          BUILD="$(echo "+${TAG}" | cut -d+ -f3)"
+          if [[ -z "${BUILD}" ]]; then
+            echo "ERR '+build<N>' must be appended to the git tag"
+            exit 1
+          fi
+          echo ::set-env name=BUILD::"${BUILD}"
 
-      # Only run tests on `amd64` as all others exit with exec error
+      ## Set ${TEST_LEVEL} based on target architecture
+      #   fmt:  none|simple|advanced
+      #   NOTE: Fails if BUILD tag was not set
       - name: Set TEST_LEVEL (env var)
         run: |
-          TEST_LEVEL="none"
-          if [[ "${ARCH}" == "amd64" ]]; then
-            TEST_LEVEL="advanced"
+          TEST_LEVEL=none
+          if [[ "${{matrix.arch}}" == "amd64" ]]; then
+            TEST_LEVEL=advanced
           fi
           echo ::set-env name=TEST_LEVEL::"${TEST_LEVEL}"
 
@@ -71,37 +85,57 @@ jobs:
           GOARM="$(echo "${{matrix.arch}}" | grep arm32 | tail -c 2)"
           echo ::set-env name=GOARM::"${GOARM}"
 
-      # TODO: add labels, see: https://github.com/lncm/docker-lnd/blob/3a26bc667c441e94958b876170f87d538cb5a07a/.github/workflows/on-tag.yml#L102-L107
-#      - name: Build ipfs in Docker
-#        run: >
-#          docker build --no-cache .
-#          --build-arg "VERSION=${VERSION}"
-#          --build-arg "ARCH=${ARCH}"
-#          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-#          --tag       "ipfs:${{matrix.arch}}"
+      - name: Print ENV VARs set above
+        run: |
+          printf "Git tag & arch processed:\n"
+          printf "    APP: %s\n"            "${APP}"
+          printf "   ARCH: %s (from %s)\n"  "${ARCH}" "${{matrix.arch}}"
+          printf "    TAG: %s\n"            "${TAG}"
+          printf " FLAVOR: %s\n"            "${{matrix.flavor}}"
+          printf "  BUILD: %s\n"            "${BUILD}"
+          printf "TEST_LE: %s\n"            "${TEST_LEVEL}"
+          printf " GOARCH: %s\n"            "${GOARCH}"
+          printf "  GOARM: %s\n"            "${GOARM}"
 
-      - name: Build IPFS (${{matrix.flavor}})
+      # TODO: add labels, see: https://github.com/lncm/docker-lnd/blob/3a26bc667c441e94958b876170f87d538cb5a07a/.github/workflows/on-tag.yml#L102-L107
+      - name: Build IPFS
         run: >
           docker build --no-cache .
-          --build-arg "VERSION=${VERSION}"
+          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
           --build-arg "ARCH=${ARCH}"
           --build-arg "GOARCH=${GOARCH}"
           --build-arg "GOARM=${GOARM}"
-          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
-          --build-arg "FLAVOR=${{matrix.flavor}}"
           --target    "final-${{matrix.flavor}}"
-          --tag       "ipfs:${{matrix.flavor}}-${{matrix.arch}}"
+          --tag       "${APP}:${FLAV_ARCH}"
+
+      - name: Register self-compiled qemu
+        if: matrix.flavor == 'fuse' && matrix.arch != 'amd64'
+        env:
+          QEMU_VERSION: v4.2.0
+        run: docker run --rm --privileged "meedamian/simple-qemu:${QEMU_VERSION}-${{matrix.arch}}" -p yes
+
+      # For the `fuse` flavor trigger all `ONBUILD`s to make sure fuse is available
+      - name: Expand fuse
+        if: matrix.flavor == 'fuse'
+        run: >
+          docker build .
+          --build-arg "TEST_LEVEL=${TEST_LEVEL}"
+          --build-arg "ARCH=${ARCH}"
+          --build-arg "GOARCH=${GOARCH}"
+          --build-arg "GOARM=${GOARM}"
+          --build-arg "FLAVOR=fuse"
+          --tag       "${APP}:${FLAV_ARCH}"
 
       - name: Show built image details
-        run: docker images ipfs
+        run: docker images "${APP}"
 
       - name: Save image to a .tgz file
         run: |
           mkdir -p image/
-          docker save "ipfs:${{matrix.flavor}}-${{matrix.arch}}" | gzip > "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
+          docker save "${APP}:${FLAV_ARCH}" | gzip > "image/${APP}-${FLAV_ARCH}.tgz"
 
       - name: Print sha256sum of produced Docker image
-        run: sha256sum "image/ipfs-${{matrix.flavor}}-${{matrix.arch}}.tgz"
+        run: sha256sum "image/${APP}-${FLAV_ARCH}.tgz"
 
       - name: Add Docker image as build artifact
         uses: actions/upload-artifact@v1.0.0
@@ -112,10 +146,10 @@ jobs:
       - name: Extract binary from the built image
         run: |
           mkdir -p binary/
-          ID=$(docker create "ipfs:${{matrix.flavor}}-${{matrix.arch}}")
-          docker cp  "${ID}:/bin/ipfs"  binary/
+          ID=$(docker create "${APP}:${FLAV_ARCH}")
+          docker cp  "${ID}:/bin/${APP}"  binary/
           docker rm  "${ID}"
-          gzip -S "-${{matrix.arch}}.gz" binary/ipfs
+          gzip -S "-${FLAV_ARCH}.gz"  "binary/${APP}"
 
       - name: Print sha256sum of extracted binary
         run: sha256sum binary/*
@@ -138,9 +172,7 @@ jobs:
       - name: Enable Docker manifest features
         run: |
           mkdir -p ~/.docker
-
           echo '{ "experimental": "enabled" }' > ~/.docker/config.json
-
           sudo systemctl restart docker
 
       - name: Setup environment
