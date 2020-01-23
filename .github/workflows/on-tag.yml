@@ -240,18 +240,18 @@ jobs:
       - name: Create :X.Y manifests
         if: steps.tags.outputs.minor != ''
         run: |
-          SHORT="${{steps.tags.outputs.minor}}"
-          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "fuse"    "${SHORT}-fuse"
-          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"  "${SHORT}-nofuse"
-          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"
+          minor="${{steps.tags.outputs.minor}}"
+          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "fuse"    "${minor}-fuse"
+          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"  "${minor}-nofuse"
+          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"  "${minor}"
 
       - name: Create :X manifests
         if: steps.tags.outputs.major != ''
         run: |
-          SHORT="${{steps.tags.outputs.major}}"
-          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "fuse"    "${SHORT}-fuse"
-          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"  "${SHORT}-nofuse"
-          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"
+          major="${{steps.tags.outputs.major}}"
+          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "fuse"    "${major}-fuse"
+          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"  "${major}-nofuse"
+          ./scripts/ci-create-manifest.sh  "${SLUG}"  "${VERSION}"  "nofuse"  "${major}"
 
       - name: Create :latest manifests
         if: steps.tags.outputs.latest != ''

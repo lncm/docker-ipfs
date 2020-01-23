@@ -23,3 +23,5 @@ docker manifest annotate  "${MANIFEST}"  "${IMAGE_ARM64}"  --os linux  --arch ar
 docker manifest annotate  "${MANIFEST}"  "${IMAGE_ARM7}"   --os linux  --arch arm   --variant v7
 docker manifest annotate  "${MANIFEST}"  "${IMAGE_ARM6}"   --os linux  --arch arm   --variant v6
 docker manifest push      "${MANIFEST}"
+
+echo
