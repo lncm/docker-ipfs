@@ -1,4 +1,4 @@
-name: Build & deploy lncm/ipfs on a git tag push
+name: Build & deploy on git tag push
 
 on:
   push:
