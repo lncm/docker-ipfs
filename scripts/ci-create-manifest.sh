@@ -16,6 +16,8 @@ IMAGE_ARM7="${BASE}-arm32v7"
 
 MANIFEST="${SLUG}:${SHORT_VERSION}"
 
+echo "Creating ${MANIFEST}…"
+
 docker -D manifest create "${MANIFEST}"  "${IMAGE_AMD64}"  "${IMAGE_ARM64}"  "${IMAGE_ARM6}"  "${IMAGE_ARM7}"
 docker manifest annotate  "${MANIFEST}"  "${IMAGE_ARM64}"  --os linux  --arch arm64 --variant v8
 docker manifest annotate  "${MANIFEST}"  "${IMAGE_ARM7}"   --os linux  --arch arm   --variant v7
