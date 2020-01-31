@@ -3,7 +3,7 @@
 #   2. `fuse`      - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
 
 # IPFS version to be built
-ARG VERSION=v0.4.22
+ARG VERSION=v0.4.23
 
 # Target CPU archtecture of built IPFS binary
 ARG ARCH
@@ -90,18 +90,10 @@ RUN git verify-tag "${VERSION}"
 
 RUN env && go version && go env
 
-# NOTE: Fix as per https://github.com/ipfs/go-ipfs/issues/6795#issuecomment-571165734
-RUN go mod edit \
-    -replace github.com/go-critic/go-critic=github.com/go-critic/go-critic@v0.4.0 \
-    -replace github.com/golangci/errcheck=github.com/golangci/errcheck@v0.0.0-20181223084120-ef45e06d44b6 \
-    -replace github.com/golangci/go-tools=github.com/golangci/go-tools@v0.0.0-20190318060251-af6baa5dc196 \
-    -replace github.com/golangci/gofmt=github.com/golangci/gofmt@v0.0.0-20181222123516-0b8337e80d98 \
-    -replace github.com/golangci/gosec=github.com/golangci/gosec@v0.0.0-20190211064107-66fb7fc33547 \
-    -replace github.com/golangci/lint-1=github.com/golangci/lint-1@v0.0.0-20190420132249-ee948d087217 \
-    -replace mvdan.cc/unparam=mvdan.cc/unparam@v0.0.0-20190209190245-fbb59629db34 \
-    -replace golang.org/x/xerrors=golang.org/x/xerrors@v0.0.0-20191204190536-9bdfabe68543
-
 RUN go mod tidy
+
+# Annoying unformatted space, is annoying 😅
+RUN go fmt ./core/coreapi/unixfs.go
 
 RUN git diff
 

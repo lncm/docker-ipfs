@@ -25,9 +25,10 @@ jobs:
       DOCKER_BUILDKIT: 1
       APP: ipfs
       FLAV_ARCH: "${{matrix.flavor}}-${{matrix.arch}}"
+      QEMU_VERSION: v4.2.0
 
     steps:
-      - uses: actions/checkout@v1.0.0
+      - uses: actions/checkout@v2.0.0
 
       ## Set full name of a git-${TAG}
       #   fmt:  vX.Y.Z[+build<N>]
@@ -98,8 +99,6 @@ jobs:
 
       - name: Register self-compiled qemu
         if: matrix.flavor == 'fuse' && matrix.arch != 'amd64'
-        env:
-          QEMU_VERSION: v4.2.0
         run: docker run --rm --privileged "meedamian/simple-qemu:${QEMU_VERSION}" -p yes
 
       - name: Build IPFS
@@ -160,7 +159,7 @@ jobs:
     needs: build
 
     steps:
-      - uses: actions/checkout@v1.0.0
+      - uses: actions/checkout@v2.0.0
 
       - name: Setup environment
         run: |

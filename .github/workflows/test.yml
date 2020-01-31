@@ -28,7 +28,7 @@ jobs:
       FLAV_ARCH: "${{matrix.flavor}}-${{matrix.arch}}"
 
     steps:
-      - uses: actions/checkout@v1.0.0
+      - uses: actions/checkout@v2.0.0
 
       - name: Setup environment
         if: matrix.arch != 'amd64'
