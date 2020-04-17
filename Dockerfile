@@ -3,7 +3,7 @@
 #   2. `fuse`      - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
 
 # IPFS version to be built
-ARG VERSION=v0.4.23
+ARG VERSION=v0.5.0-rc2
 
 # Target CPU archtecture of built IPFS binary
 ARG ARCH
@@ -54,7 +54,7 @@ ENV GOOS ${GOARCH:+linux}
 ENV GOARM ${GOARM:-${TARGETVARIANT:+6}}
 
 # Most dependencies are needed for tests
-RUN apk add --no-cache  gcc  git  gnupg  libc-dev  make  upx
+RUN apk add --no-cache  bash  gcc  git  gnupg  libc-dev  make  upx
 
 # NOTE: `adduser`, because tests fail when run as root
 RUN adduser --disabled-password \
@@ -86,9 +86,6 @@ RUN env && go version && go env
 
 RUN go mod tidy
 
-# Annoying unformatted space, is annoying 😅
-RUN go fmt ./core/coreapi/unixfs.go
-
 RUN git diff
 
 
@@ -119,7 +116,7 @@ ARG USER
 
 # Switch to root to install all dependencies required by integration test suite
 USER root
-RUN apk add --no-cache  build-base  bash  coreutils  curl  grep  perl  psmisc  socat
+RUN apk add --no-cache  build-base  coreutils  curl  grep  perl  psmisc  socat
 
 # Switch back to $USER, as tests have to be run as non-root
 USER ${USER}
