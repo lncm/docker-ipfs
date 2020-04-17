@@ -1,8 +1,13 @@
 name: Build & test on any push
 
+env:
+  APP: ipfs
+
 on:
-  - push
-  - pull_request
+  push:
+    branches: [ 'master' ]
+  pull_request:
+    branches: [ 'master' ]
 
 jobs:
   build:
@@ -14,50 +19,46 @@ jobs:
       matrix:
         arch:
           - amd64
-          - arm64
           - arm32v6
           - arm32v7
+          - arm64v8
 
         flavor:
           - fuse
           - nofuse
 
     env:
+      QEMU_VERSION: v4.2.0
       DOCKER_BUILDKIT: 1
-      APP: ipfs
-      FLAV_ARCH: "${{matrix.flavor}}-${{matrix.arch}}"
+      FLAV_ARCH: "${{ matrix.flavor }}-${{ matrix.arch }}"
 
     steps:
-      - uses: actions/checkout@v2.0.0
+      - uses: actions/checkout@v2
 
-      - name: Setup environment
+      # GOARCH => arm|arm64
+      # GOARM  => 6|7
+      - name: Setup Go environment
         if: matrix.arch != 'amd64'
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
-          ARCH="${{matrix.arch}}"
-          if [[ "${{matrix.arch}}" == "arm64" ]]; then
-            ARCH="arm64v8"
-          fi
-          echo ::set-env name=ARCH::"${ARCH}"
+          GOARCH="${ARCH%32v?}"
+          echo ::set-env name=GOARCH::"${GOARCH%v8}"
+          echo ::set-env name=GOARM::"$(echo "$ARCH" | sed -En 's|^arm32v([6-7])$|\1|p')"
 
-          GOARCH="$(echo "${{matrix.arch}}" | grep -oE 'arm(64)?')"
-          echo ::set-env name=GOARCH::"${GOARCH}"
-
-          GOARM="$(echo "${{matrix.arch}}" | grep arm32 | tail -c 2)"
-          echo ::set-env name=GOARM::"${GOARM}"
+      - name: Register self-compiled qemu
+        if: matrix.arch != 'amd64'
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: docker run --rm --privileged "meedamian/simple-qemu:$QEMU_VERSION-${ARCH%32v6}" -p yes
 
       - name: Build & test IPFS (same CPU)
         if: matrix.arch == 'amd64'
         run: >
           docker build --no-cache .
           --build-arg "TEST_LEVEL=advanced"
-          --build-arg "FLAVOR=${{matrix.flavor}}"
-          --tag       "${APP}:${FLAV_ARCH}"
-
-      - name: Register self-compiled qemu
-        if: matrix.flavor == 'fuse' && matrix.arch != 'amd64'
-        env:
-          QEMU_VERSION: v4.2.0
-        run: docker run --rm --privileged "meedamian/simple-qemu:${QEMU_VERSION}" -p yes
+          --build-arg "FLAVOR=${{ matrix.flavor }}"
+          --tag       "$APP:$FLAV_ARCH"
 
       # NOTE: `--target="final-*"` used here due to usage of `ONBUILD` tags
       - name: Build IPFS (cross-compile)
@@ -65,43 +66,11 @@ jobs:
         run: >
           docker build --no-cache .
           --build-arg "TEST_LEVEL=none"
-          --build-arg "ARCH=${ARCH}"
-          --build-arg "GOARCH=${GOARCH}"
-          --build-arg "GOARM=${GOARM}"
-          --target    "final-${{matrix.flavor}}"
-          --tag       "${APP}:${FLAV_ARCH}"
+          --build-arg "ARCH=${{ matrix.arch }}"
+          --build-arg "GOARCH=$GOARCH"
+          --build-arg "GOARM=$GOARM"
+          --target    "final-${{ matrix.flavor }}"
+          --tag       "$APP:$FLAV_ARCH"
 
       - name: Show built image details
-        run: docker images ipfs
-
-      - name: Save image to a .tgz file
-        run: |
-          mkdir -p image/
-          docker save "${APP}:${FLAV_ARCH}" | gzip > "image/${APP}-${FLAV_ARCH}.tgz"
-
-      - name: Print sha256sum of produced Docker image
-        run: sha256sum "image/${APP}-${FLAV_ARCH}.tgz"
-
-      - name: Add Docker image as build artifact
-        uses: actions/upload-artifact@v1.0.0
-        with:
-          name: docker-images
-          path: image/
-
-      - name: Extract binary from the built image
-        run: |
-          mkdir -p binary/
-          ID=$(docker create "${APP}:${FLAV_ARCH}")
-          docker cp  "${ID}:/usr/local/bin/ipfs"  binary/
-          docker rm  "${ID}"
-
-          gzip -S "-${FLAV_ARCH}.gz" binary/ipfs
-
-      - name: Print sha256sum of extracted binary
-        run: sha256sum binary/*
-
-      - name: Add raw binary as build artifact
-        uses: actions/upload-artifact@v1.0.0
-        with:
-          name: binaries
-          path: binary/
+        run: docker images "$APP"
