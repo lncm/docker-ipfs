@@ -59,34 +59,28 @@ RUN apk add --no-cache  gcc  git  gnupg  libc-dev  make  upx
 # NOTE: `adduser`, because tests fail when run as root
 RUN adduser --disabled-password \
             --gecos "" \
-            ${USER}
+            "$USER"
 
 RUN mkdir -p  /go/src/
-RUN chown -R ${USER}:${USER}  /go/src/
+RUN chown -R "$USER:$USER"  /go/src/
 
-USER ${USER}
+USER $USER
 
 ENV KEYS 327B20CE21EA68CFA77486757C9232215899410C
+RUN timeout 16s  gpg  --keyserver keyserver.ubuntu.com  --recv-keys $KEYS
 
-# Try to fetch keys from keyservers listed below.  On first success terminate with `exit 0`.  If loop is not interrupted,
-#   it means all attempts failed, and `exit 1` is called.
-RUN for srv in  keyserver.ubuntu.com  hkp://p80.pool.sks-keyservers.net:80  ha.pool.sks-keyservers.net  keyserver.pgp.com  pgp.mit.edu; do \
-        timeout 9s  gpg  --keyserver "${srv}"  --recv-key ${KEYS}  >/dev/null 2<&1 && \
-            { echo "OK:  ${srv}" && exit 0; } || \
-            { echo "ERR: ${srv} fail=$?"; } ; \
-    done && exit 1
-
-RUN gpg --list-keys && \
-    gpg --list-keys ${KEYS}
+# Print imported keys, but also ensure there's no other keys in the system
+RUN gpg --list-keys | tail -n +3 | tee /tmp/keys.txt && \
+    gpg --list-keys $KEYS | diff - /tmp/keys.txt
 
 # Fetch IPFS source code
 RUN cd /go/src/ && \
-    git clone  -b ${VERSION}  --depth=1  https://github.com/ipfs/go-ipfs.git .
+    git clone  -b "$VERSION"  --depth=1  https://github.com/ipfs/go-ipfs.git .
 
 WORKDIR /go/src/
 
 # Verify that git tag contains a valid signature
-RUN git verify-tag "${VERSION}"
+RUN git verify-tag "$VERSION"
 
 RUN env && go version && go env
 
@@ -190,7 +184,7 @@ ARG DIR
 COPY  --from=build-fuse /go/src/cmd/ipfs/ipfs  /usr/local/bin/
 
 # Expose the volume containing the _internals_part of IPFS
-VOLUME ${DIR}/.ipfs/
+VOLUME $DIR/.ipfs/
 
 # Expose the volumes containing the file-system parts of what IPFS makes available
 VOLUME /ipfs/
@@ -218,13 +212,13 @@ ARG DIR
 
 # NOTE: Default GID == UID == 1000
 RUN adduser --disabled-password \
-            --home ${DIR} \
+            --home "$DIR" \
             --gecos "" \
-            ${USER}
+            "$USER"
 
 # Needed to prevent `VOLUME ${DIR}/.ipfs/` creating it with `root` as owner
-USER ${USER}
-RUN mkdir -p ${DIR}/.ipfs/
+USER $USER
+RUN mkdir -p "$DIR/.ipfs/"
 
 
 
@@ -243,13 +237,13 @@ COPY  --from=build-nofuse /go/src/cmd/ipfs/ipfs  /usr/local/bin/
 # Copy only the relevant parts from the `perms` image
 COPY  --from=perms /etc/group /etc/passwd /etc/shadow  /etc/
 
-# From `perms`, copy *the contents* of `${DIR}` (ie. `.ipfs/`), and set correct owner for destination `${DIR}`
-COPY  --from=perms --chown=${USER}:${USER} ${DIR}  ${DIR}
+# From `perms`, copy *the contents* of `$DIR` (ie. `.ipfs/`), and set correct owner for destination `$DIR`
+COPY  --from=perms --chown=$USER:$USER $DIR  $DIR
 
-USER ${USER}
+USER $USER
 
 # Expose the volume containing the _internals_ of IPFS
-VOLUME ${DIR}/.ipfs/
+VOLUME $DIR/.ipfs/
 
 CMD ["daemon", "--init", "--migrate"]
 
