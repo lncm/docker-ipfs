@@ -119,7 +119,7 @@ USER root
 RUN apk add --no-cache  build-base  coreutils  curl  grep  perl  psmisc  socat
 
 # Switch back to $USER, as tests have to be run as non-root
-USER ${USER}
+USER $USER
 
 ENV TEST_NO_DOCKER 1
 ENV TEST_VERBOSE 1
