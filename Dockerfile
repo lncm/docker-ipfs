@@ -9,7 +9,7 @@ ARG VERSION=v0.5.0-rc2
 ARG ARCH
 
 # Define default versions so that they aren't repreated throughout the file
-ARG VER_GO=1.14
+ARG VER_GO=1.13.10
 ARG VER_ALPINE=3.11
 
 # Default user, and their home directory for the `final` stage
