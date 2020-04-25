@@ -3,7 +3,7 @@
 #   2. `fuse`      - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
 
 # IPFS version to be built
-ARG VERSION=v0.5.0-rc3
+ARG VERSION=v0.5.0-rc4
 
 # Target CPU archtecture of built IPFS binary
 ARG ARCH
