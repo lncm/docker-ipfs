@@ -22,6 +22,7 @@ jobs:
           - nofuse
 
     env:
+      QEMU_VERSION: v5.0.0
       DOCKER_BUILDKIT: 1
       APP: ipfs
       FLAV_ARCH: "${{matrix.flavor}}-${{matrix.arch}}"

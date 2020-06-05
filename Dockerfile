@@ -3,14 +3,14 @@
 #   2. `fuse`      - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
 
 # IPFS version to be built
-ARG VERSION=v0.5.0
+ARG VERSION=v0.5.1
 
 # Target CPU archtecture of built IPFS binary
 ARG ARCH
 
 # Define default versions so that they aren't repreated throughout the file
 ARG VER_GO=1.14
-ARG VER_ALPINE=3.11
+ARG VER_ALPINE=3.12
 
 # Default user, and their home directory for the `final` stage
 ARG USER=ipfs
