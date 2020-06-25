@@ -3,7 +3,7 @@
 #   2. `fuse`      - enable mounting `/ipns/` & `/ipfs/`, and file system level interactions
 
 # IPFS version to be built
-ARG VERSION=v0.5.1
+ARG VERSION=v0.6.0
 
 # Target CPU archtecture of built IPFS binary
 ARG ARCH
@@ -132,7 +132,7 @@ RUN TEST_NO_FUSE=1  make test_short
 
 #
 ## These stages pick up whichever test level was selected, and produce
-#       the desired flavor if the final, compressed binary at `/go/src/cmd/ipfs/ipfs`
+#       the desired flavor of the final, compressed binary at `/go/src/cmd/ipfs/ipfs`
 #
 FROM test-${TEST_LEVEL} AS build-fuse
 RUN make build
